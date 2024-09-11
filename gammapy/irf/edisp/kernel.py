@@ -205,7 +205,7 @@ class EDispKernel(IRF):
         return cls(axes=[energy_axis_true, energy_axis], data=data.value)
 
     @classmethod
-    def from_hdulist(cls, hdulist, hdu1="MATRIX", hdu2="EBOUNDS"):
+    def from_hdulist(cls, hdulist, hdu1="MATRIX", hdu2="EBOUNDS",mission=None,ccube=None):
         """Create `EnergyDispersion` object from `~astropy.io.fits.HDUList`.
 
         Parameters
@@ -216,26 +216,56 @@ class EDispKernel(IRF):
             HDU containing the energy dispersion matrix. Default is "MATRIX".
         hdu2 : str, optional
             HDU containing the energy axis information. Default is "EBOUNDS".
+        mission : str, optional
+            Origin of the data, used in case of unclear format. Mandatory for Fermi data. Default is None.
+            (Options: "fermi", "erosita", "xmm", "chandra", "nustar")
+        ccube : str, optional
+            Counts cube for Fermi data. Mandatory for Fermi data. Default is None.
         """
         matrix_hdu = hdulist[hdu1]
-        ebounds_hdu = hdulist[hdu2]
+
+        if mission=="fermi":
+            hdulist_ccube=fits.open(ccube)
+            ebounds_hdu=hdulist_ccube[hdu2]
+        else:
+            ebounds_hdu = hdulist[hdu2]
 
         data = matrix_hdu.data
         header = matrix_hdu.header
 
         pdf_matrix = np.zeros([len(data), header["DETCHANS"]], dtype=np.float64)
 
+        #check for TLMIN keyword to determone if indexing starts at 0 or 1:
+        try:
+            ind_offset=int(matrix_hdu.header["TLMIN*"][0])
+        except:
+            if mission in ["fermi","erosita","chandra"]:
+                ind_offset=1
+                print("Warning: TLMIN keyword not found, value {ind_offset} assumed for {mission}")
+            elif mission in ["xmm", "nustar"]:
+                ind_offset=0
+                print("Warning: TLMIN keyword not found, value {ind_offset} assumed for {mission}")
+            else:
+                ind_offset=1
+                print("Warning: TLMIN keyword not found, mission name not found, assuming value of 1.")
+
         for i, l in enumerate(data):
             if l.field("N_GRP"):
                 m_start = 0
                 for k in range(l.field("N_GRP")):
-                    chan_min = l.field("F_CHAN")[k]
-                    chan_max = l.field("F_CHAN")[k] + l.field("N_CHAN")[k]
+                    if np.isscalar(l.field("N_CHAN")):
+                        chan_min = l.field("F_CHAN")-ind_offset
+                        chan_max = l.field("F_CHAN") + l.field("N_CHAN")-ind_offset
+                        n_chan=l.field("N_CHAN")
+                    else:
+                        chan_min = l.field("F_CHAN")[k]-ind_offset
+                        chan_max = l.field("F_CHAN")[k] + l.field("N_CHAN")[k]-ind_offset
+                        n_chan=l.field("N_CHAN")[k]
 
                     pdf_matrix[i, chan_min:chan_max] = l.field("MATRIX")[
-                        m_start : m_start + l.field("N_CHAN")[k]  # noqa: E203
+                        m_start : m_start + n_chan  # noqa: E203
                     ]
-                    m_start += l.field("N_CHAN")[k]
+                    m_start += n_chan
 
         table = Table.read(ebounds_hdu)
         energy_axis = MapAxis.from_table(table, format="ogip")
@@ -246,7 +276,7 @@ class EDispKernel(IRF):
         return cls(axes=[energy_axis_true, energy_axis], data=pdf_matrix)
 
     @classmethod
-    def read(cls, filename, hdu1="MATRIX", hdu2="EBOUNDS", checksum=False):
+    def read(cls, filename, hdu1="MATRIX", hdu2="EBOUNDS", checksum=False,mission=None,ccube=None):
         """Read from file.
 
         Parameters
@@ -259,11 +289,16 @@ class EDispKernel(IRF):
             HDU containing the energy axis information. Default is "EBOUNDS".
         checksum : bool
             If True checks both DATASUM and CHECKSUM cards in the file headers. Default is False.
+        mission : str, optional
+            Origin of the data, used in case of unclear format. Mandatory for Fermi data. Default is None.
+            (Options: "fermi", "erosita", "xmm", "chandra", "nustar")
+        ccube : str, optional
+            Counts cube for Fermi data. Mandatory for Fermi data. Default is None.
         """
         with fits.open(
             str(make_path(filename)), memmap=False, checksum=checksum
         ) as hdulist:
-            return cls.from_hdulist(hdulist, hdu1=hdu1, hdu2=hdu2)
+            return cls.from_hdulist(hdulist, hdu1=hdu1, hdu2=hdu2,mission=mission,ccube=ccube)
 
     def to_hdulist(self, format="ogip", **kwargs):
         """Convert RMF to FITS HDU list format.
