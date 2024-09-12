@@ -216,11 +216,6 @@ class EDispKernel(IRF):
             HDU containing the energy dispersion matrix. Default is "MATRIX".
         hdu2 : str, optional
             HDU containing the energy axis information. Default is "EBOUNDS".
-        mission : str, optional
-            Origin of the data, used in case of unclear format. Mandatory for Fermi data. Default is None.
-            (Options: "fermi", "erosita", "xmm", "chandra", "nustar")
-        ccube : str, optional
-            Counts cube for Fermi data. Mandatory for Fermi data. Default is None.
         """
         matrix_hdu = hdulist[hdu1]
 
@@ -241,10 +236,10 @@ class EDispKernel(IRF):
         except:
             if mission in ["fermi","erosita","chandra"]:
                 ind_offset=1
-                print("Warning: TLMIN keyword not found, value {ind_offset} assumed for {mission}")
+                print(f"Warning: TLMIN keyword not found, value {ind_offset} assumed for {mission}")
             elif mission in ["xmm", "nustar"]:
                 ind_offset=0
-                print("Warning: TLMIN keyword not found, value {ind_offset} assumed for {mission}")
+                print(f"Warning: TLMIN keyword not found, value {ind_offset} assumed for {mission}")
             else:
                 ind_offset=1
                 print("Warning: TLMIN keyword not found, mission name not found, assuming value of 1.")
@@ -272,6 +267,9 @@ class EDispKernel(IRF):
 
         table = Table.read(matrix_hdu)
         energy_axis_true = MapAxis.from_table(table, format="ogip-arf")
+
+        if energy_axis_true.unit == " ":
+            energy_axis_true=MapAxis.from_edges(energy_axis_true.edges.value*(((1*u.MeV/energy_axis.unit).decompose()).value), unit=energy_axis.unit,name="energy_true",interp="log")
 
         return cls(axes=[energy_axis_true, energy_axis], data=pdf_matrix)
 
