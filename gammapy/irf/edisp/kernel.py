@@ -266,10 +266,10 @@ class EDispKernel(IRF):
         energy_axis = MapAxis.from_table(table, format="ogip")
 
         table = Table.read(matrix_hdu)
+        if table["ENERG_LO"].unit == None and mission=="fermi":
+            table["ENERG_LO"].unit=u.MeV
+            print(f"Warning: true energy axis unit not found, MeV assumed for fermi")
         energy_axis_true = MapAxis.from_table(table, format="ogip-arf")
-
-        if energy_axis_true.unit == " ":
-            energy_axis_true=MapAxis.from_edges(energy_axis_true.edges.value*(((1*u.MeV/energy_axis.unit).decompose()).value), unit=energy_axis.unit,name="energy_true",interp="log")
 
         return cls(axes=[energy_axis_true, energy_axis], data=pdf_matrix)
 
@@ -630,7 +630,7 @@ class EDispKernel(IRF):
             ax.plot(energy, bias, **kwargs)
 
         ax.set_xlabel(
-            f"$E_\\mathrm{{True}}$ [{ax.yaxis.units.to_string(UNIT_STRING_FORMAT)}]"
+            f"$E_\\mathrm{{True}}$ [{ax.xaxis.units.to_string(UNIT_STRING_FORMAT)}]"
         )
         ax.set_ylabel(
             "($E_\\mathrm{{Reco}} - E_\\mathrm{{True}}) / E_\\mathrm{{True}}$"
