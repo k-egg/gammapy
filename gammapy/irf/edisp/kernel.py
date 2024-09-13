@@ -216,6 +216,11 @@ class EDispKernel(IRF):
             HDU containing the energy dispersion matrix. Default is "MATRIX".
         hdu2 : str, optional
             HDU containing the energy axis information. Default is "EBOUNDS".
+        mission : str, optional
+            Origin of the data, used in case of unclear format. Mandatory for Fermi data. Default is None.
+            (Options: "fermi", "erosita", "xmm", "chandra", "nustar")
+        ccube : str, optional
+            Counts cube for Fermi data. Mandatory for Fermi data. Default is None.
         """
         matrix_hdu = hdulist[hdu1]
 
