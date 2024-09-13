@@ -225,18 +225,28 @@ class EDispKernel(IRF):
 
         pdf_matrix = np.zeros([len(data), header["DETCHANS"]], dtype=np.float64)
 
+         #check for TLMIN keyword to determine if indexing starts at 0 or 1:
+        try:
+            ind_offset=int(matrix_hdu.header["TLMIN*"][0])
+
         for i, l in enumerate(data):
             if l.field("N_GRP"):
                 m_start = 0
                 for k in range(l.field("N_GRP")):
-                    chan_min = l.field("F_CHAN")[k]
-                    chan_max = l.field("F_CHAN")[k] + l.field("N_CHAN")[k]
+                    if np.isscalar(l.field("N_CHAN")):
+                        chan_min = l.field("F_CHAN")-ind_offset
+                        chan_max = l.field("F_CHAN") + l.field("N_CHAN")-ind_offset
+                        n_chan=l.field("N_CHAN")
+                    else:
+                        chan_min = l.field("F_CHAN")[k]-ind_offset
+                        chan_max = l.field("F_CHAN")[k] + l.field("N_CHAN")[k]-ind_offset
+                        n_chan=l.field("N_CHAN")[k]
 
                     pdf_matrix[i, chan_min:chan_max] = l.field("MATRIX")[
-                        m_start : m_start + l.field("N_CHAN")[k]  # noqa: E203
+                        m_start : m_start + n_chan  # noqa: E203
                     ]
-                    m_start += l.field("N_CHAN")[k]
-
+                    m_start += n_chan
+    
         table = Table.read(ebounds_hdu)
         energy_axis = MapAxis.from_table(table, format="ogip")
 
