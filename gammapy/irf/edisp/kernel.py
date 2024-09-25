@@ -226,6 +226,7 @@ class EDispKernel(IRF):
         pdf_matrix = np.zeros([len(data), header["DETCHANS"]], dtype=np.float64)
 
          #check for TLMIN keyword to determine if indexing starts at 0 or 1:
+        ind_offset=0
         try:
             ind_offset=int(matrix_hdu.header["TLMIN*"][0])
 
