@@ -996,7 +996,7 @@ class IRFMap:
             Downsampled IRF map.
         """
         irf_map = self._irf_map.downsample(
-            factor=factor, axis_name=axis_name, preserve_counts=True, weights=weights
+            factor=factor, axis_name=axis_name, preserve_counts=False, weights=weights
         )
         if axis_name is None:
             exposure_map = self.exposure_map.downsample(
