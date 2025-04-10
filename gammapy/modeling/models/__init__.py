@@ -13,6 +13,7 @@ from .prior import GaussianPrior, Prior, UniformPrior, LogUniformPrior
 from .spatial import (
     ConstantFluxSpatialModel,
     ConstantSpatialModel,
+    CompoundSpatialModel,
     DiskSpatialModel,
     GaussianSpatialModel,
     GeneralizedGaussianSpatialModel,
@@ -143,6 +144,7 @@ __all__ = [
 SPATIAL_MODEL_REGISTRY = Registry(
     [
         ConstantSpatialModel,
+        CompoundSpatialModel,
         TemplateSpatialModel,
         TemplateNDSpatialModel,
         DiskSpatialModel,

@@ -2,6 +2,7 @@
 """Spatial models."""
 
 import logging
+import operator
 import os
 import numpy as np
 import scipy.integrate
@@ -27,11 +28,13 @@ from gammapy.utils.gauss import Gauss2DPDF
 from gammapy.utils.interpolation import interpolation_scale
 from gammapy.utils.regions import region_circle_to_ellipse, region_to_frame
 from gammapy.utils.scripts import make_path
+from ..covariance import CovarianceMixin
 from .core import ModelBase, _build_parameters_from_dict
 
 __all__ = [
     "ConstantFluxSpatialModel",
     "ConstantSpatialModel",
+    "CompoundSpatialModel",
     "DiskSpatialModel",
     "GaussianSpatialModel",
     "GeneralizedGaussianSpatialModel",
@@ -510,6 +513,83 @@ class SpatialModel(ModelBase):
             )
         else:
             return None
+
+
+class CompoundSpatialModel(CovarianceMixin, SpatialModel):
+    """Arithmetic combination of two spectral models.
+
+    For more information see :ref:`compound-spectral-model`.
+    """
+
+    tag = ["CompoundSpatialModel", "compound"]
+
+    def __init__(self, model1, model2, operator):
+        self.model1 = model1
+        self.model2 = model2
+        self.operator = operator
+        super().__init__()
+
+    @property
+    def _models(self):
+        return [self.model1, self.model2]
+
+    @property
+    def parameters(self):
+        return self.model1.parameters + self.model2.parameters
+
+    @property
+    def parameters_unique_names(self):
+        names = []
+        for idx, model in enumerate(self._models):
+            for par_name in model.parameters_unique_names:
+                components = [f"model{idx+1}", par_name]
+                name = ".".join(components)
+                names.append(name)
+        return names
+
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}\n"
+            f"    Component 1 : {self.model1}\n"
+            f"    Component 2 : {self.model2}\n"
+            f"    Operator : {self.operator.__name__}\n"
+        )
+
+    def __call__(self, lon, lat):
+        val1 = self.model1(lon, lat)
+        val2 = self.model2(lon, lat)
+        return self.operator(val1, val2)
+
+    def to_dict(self, full_output=False):
+        dict1 = self.model1.to_dict(full_output)
+        dict2 = self.model2.to_dict(full_output)
+        return {
+            self._type: {
+                "type": self.tag[0],
+                "model1": dict1["spatial"],  # for cleaner output
+                "model2": dict2["spatial"],
+                "operator": self.operator.__name__,
+            }
+        }
+
+    def evaluate(self, lon, lat, *args):
+        args1 = args[: len(self.model1.parameters)]
+        args2 = args[len(self.model1.parameters) :]
+        val1 = self.model1.evaluate(lon, lat, *args1)
+        val2 = self.model2.evaluate(lon, lat, *args2)
+        return self.operator(val1, val2)
+
+    @classmethod
+    def from_dict(cls, data, **kwargs):
+        from gammapy.modeling.models import SPATIAL_MODEL_REGISTRY
+
+        data = data["spectral"]
+        model1_cls = SPATIAL_MODEL_REGISTRY.get_cls(data["model1"]["type"])
+        model1 = model1_cls.from_dict({"spatial": data["model1"]})
+        model2_cls = SPATIAL_MODEL_REGISTRY.get_cls(data["model2"]["type"])
+        model2 = model2_cls.from_dict({"spatial": data["model2"]})
+        op = getattr(operator, data["operator"])
+        return cls(model1, model2, op)
 
 
 class PointSpatialModel(SpatialModel):
