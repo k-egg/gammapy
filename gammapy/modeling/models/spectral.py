@@ -2579,6 +2579,12 @@ class NaimaSpectralModel(SpectralModel):
             parameters.append(Parameter("B", B))
             parameters.append(Parameter("radius", radius, frozen=True))
 
+        # Append Emin and Emax to the fittable parameters
+        for name in ["Emin", "Emax"]:
+            value = getattr(self.radiative_model, name)
+            parameter = Parameter(name, value, frozen=True)
+            parameters.append(parameter)
+
         self.default_parameters = Parameters(parameters)
         self.ssc_energy = np.logspace(-7, 9, 100) * u.eV
         super().__init__()
